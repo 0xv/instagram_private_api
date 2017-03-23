@@ -11,7 +11,7 @@ class FeedEndpointsMixin(object):
              for m in res.get('items', [])]
         return res
 
-    def feed_timeline(self, **kwargs):
+    def feed_timeline(self,n=50 , **kwargs):
         """
         Get timeline feed. To get a new timeline feed, you can mark a set of media
         as seen by setting seen_posts = comma-separated list of media IDs. Example:
@@ -25,13 +25,22 @@ class FeedEndpointsMixin(object):
             'phone_id': self.phone_id,
             'timezone_offset': self.timezone_offset,
         }
+        media = []
         params.update(kwargs)
         res = self._call_api('feed/timeline/', params=params, unsigned=True)
+        media.extend(res.get('feed_items',[]))
+        while res.get('more_available') and res.get('next_max_id') and len(media) < n:
+            params.update({'max_id': res.get('next_max_id')})
+            res = self._call_api('feed/timeline/', params=params, unsigned=True)
+            media.extend(res.get('feed_items', []))
+            if not res.get('next_max_id') or not res.get('feed_items'):
+                break
+
         if self.auto_patch:
             [ClientCompatPatch.media(m['media_or_ad'], drop_incompat_keys=self.drop_incompat_keys)
              if m.get('media_or_ad') else m
              for m in res.get('feed_items', [])]
-        return res
+        return media
 
     def feed_popular(self, **kwargs):
         """Get popular feed"""
